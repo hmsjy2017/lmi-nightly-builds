@@ -49,6 +49,10 @@ jobs:
           source ../pmbootstrap/helpers/envkernel.sh
           make defconfig sm8250.config
           make -j$(nproc)
+          # The envkernel package build runs in strict mode. Prebuild abuild for
+          # the native chroot so pmbootstrap does not need to build it as an
+          # implicit dependency while strict mode is active.
+          pmbootstrap build --force --arch=x86_64 abuild
           pmbootstrap build --envkernel linux-postmarketos-qcom-sm8250-lmi
 
       - name: Create artifact directory
