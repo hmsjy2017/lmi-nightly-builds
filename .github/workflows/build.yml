@@ -21,6 +21,7 @@ jobs:
 
       - name: Install pmbootstrap from git
         run: |
+          git config --global http.version HTTP/1.1
           git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git
           mkdir -p ~/.local/bin
           ln -s "$PWD/pmbootstrap/pmbootstrap.py" ~/.local/bin/pmbootstrap
@@ -28,7 +29,18 @@ jobs:
 
       - name: Set up pmaports
         run: |
-          echo -e '\n\n' | pmbootstrap init || true
+          for attempt in 1 2 3; do
+            rm -rf ~/.local/var/pmbootstrap/cache_git/pmaports
+            if printf '\n\n' | pmbootstrap init; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pmbootstrap init failed after $attempt attempts" >&2
+              exit 1
+            fi
+            sleep $((attempt * 30))
+          done
+          test -d ~/.local/var/pmbootstrap/cache_git/pmaports
           cd ~/.local/var/pmbootstrap/cache_git/pmaports
           git remote add mainlining https://github.com/yuweiyuan8/pmaports.git
           git fetch mainlining nikroks/alioth
