@@ -30,6 +30,9 @@ jobs:
       - name: Set up pmaports
         run: |
           mkdir -p ~/.local/var/pmbootstrap/cache_git
+          # Directly cloning pmaports bypasses pmbootstrap init's prompts, so
+          # create the work-folder version marker expected by pmbootstrap 3.x.
+          echo 8 > ~/.local/var/pmbootstrap/version
           for attempt in 1 2 3; do
             rm -rf ~/.local/var/pmbootstrap/cache_git/pmaports
             if git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmaports.git ~/.local/var/pmbootstrap/cache_git/pmaports; then
