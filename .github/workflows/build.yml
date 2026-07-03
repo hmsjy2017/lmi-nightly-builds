@@ -29,33 +29,34 @@ jobs:
 
       - name: Set up pmaports
         run: |
-          mkdir -p ~/.local/var/pmbootstrap/cache_git
-          # Directly cloning pmaports bypasses pmbootstrap init's prompts, so
-          # create the work-folder version marker expected by pmbootstrap 3.x.
-          echo 8 > ~/.local/var/pmbootstrap/version
           for attempt in 1 2 3; do
-            rm -rf ~/.local/var/pmbootstrap/cache_git/pmaports
-            if git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmaports.git ~/.local/var/pmbootstrap/cache_git/pmaports; then
+            rm -rf ~/.local/var/pmbootstrap
+            if yes '' | pmbootstrap init; then
               break
             fi
             if [ "$attempt" -eq 3 ]; then
-              echo "pmaports clone failed after $attempt attempts" >&2
+              echo "pmbootstrap init failed after $attempt attempts" >&2
               exit 1
             fi
             sleep $((attempt * 30))
           done
           cd ~/.local/var/pmbootstrap/cache_git/pmaports
           git remote add mainlining https://github.com/yuweiyuan8/pmaports.git
-          git fetch --depth=1 mainlining nikroks/alioth
+          git fetch mainlining nikroks/alioth
           git reset --hard mainlining/nikroks/alioth
 
       - name: Clone kernel sources
         run: |
           git clone https://github.com/yuweiyuan8/linux.git --single-branch --branch v6.19 --depth 1 ./linux
 
-      - name: Choose any SM8250 device in pmbootstrap to build kernel
+      - name: Configure xiaomi-lmi in pmbootstrap
         run: |
-          cp xiaomi-lmi.cfg ~/.config/pmbootstrap_v3.cfg
+          pmbootstrap config channel edge
+          pmbootstrap config device xiaomi-lmi
+          pmbootstrap config ui phosh
+          pmbootstrap config systemd never
+          pmbootstrap config user user
+          pmbootstrap config jobs $(nproc)
 
       - name: Compile kernel with envkernel
         run: |
@@ -76,7 +77,12 @@ jobs:
 
       - name: Build xiaomi-lmi
         run: |
-          cp xiaomi-lmi.cfg ~/.config/pmbootstrap_v3.cfg
+          pmbootstrap config channel edge
+          pmbootstrap config device xiaomi-lmi
+          pmbootstrap config ui phosh
+          pmbootstrap config systemd never
+          pmbootstrap config user user
+          pmbootstrap config jobs $(nproc)
           # Rootfs creation may need to rebuild device-arch packages from the
           # checked-out pmaports tree. Prebuild abuild for aarch64 too so strict
           # mode does not fail while preparing the device build environment.
