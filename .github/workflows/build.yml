@@ -51,7 +51,6 @@ jobs:
 
       - name: Configure xiaomi-lmi in pmbootstrap
         run: |
-          pmbootstrap config channel edge
           pmbootstrap config device xiaomi-lmi
           pmbootstrap config ui phosh
           pmbootstrap config systemd never
@@ -77,7 +76,6 @@ jobs:
 
       - name: Build xiaomi-lmi
         run: |
-          pmbootstrap config channel edge
           pmbootstrap config device xiaomi-lmi
           pmbootstrap config ui phosh
           pmbootstrap config systemd never
