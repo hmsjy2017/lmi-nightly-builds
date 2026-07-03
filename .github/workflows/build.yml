@@ -62,10 +62,10 @@ jobs:
       - name: Build xiaomi-lmi
         run: |
           cp xiaomi-lmi.cfg ~/.config/pmbootstrap_v3.cfg
-          # The kernel package is built explicitly above. During image creation,
-          # use the binary repositories for the rest of the rootfs instead of
-          # trying to rebuild stale local pmaports packages in CI strict mode.
-          pmbootstrap config build_pkgs_on_install false
+          # Rootfs creation may need to rebuild device-arch packages from the
+          # checked-out pmaports tree. Prebuild abuild for aarch64 too so strict
+          # mode does not fail while preparing the device build environment.
+          pmbootstrap build --force --arch=aarch64 abuild
           pmbootstrap install --password 147147
           pmbootstrap export
           cp /tmp/postmarketOS-export/boot.img out/boot-xiaomi-lmi.img
