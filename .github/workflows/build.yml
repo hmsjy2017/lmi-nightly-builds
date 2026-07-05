@@ -70,9 +70,22 @@ jobs:
           pmbootstrap build --force --arch=x86_64 abuild
           pmbootstrap build --envkernel linux-postmarketos-qcom-sm8250-lmi
 
+      - name: Stage kernel package artifacts
+        run: |
+          mkdir -p out/kernel-packages
+          find ~/.local/var/pmbootstrap/packages/edge -type f -name 'linux-postmarketos-qcom-sm8250-lmi*.apk' -exec cp {} out/kernel-packages/ \;
+          test -n "$(find out/kernel-packages -type f -name '*.apk' -print -quit)"
+
+      - name: Upload kernel package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaomi-lmi-kernel-packages
+          path: out/kernel-packages/*.apk
+          retention-days: 7
+
       - name: Create artifact directory
         run: |
-          mkdir out
+          mkdir -p out
 
       - name: Build xiaomi-lmi
         run: |
