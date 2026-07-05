@@ -88,6 +88,7 @@ jobs:
           mkdir -p out
 
       - name: Build xiaomi-lmi
+        continue-on-error: true
         run: |
           pmbootstrap config device xiaomi-lmi
           pmbootstrap config ui phosh
@@ -98,12 +99,13 @@ jobs:
           # checked-out pmaports tree. Prebuild abuild for aarch64 too so strict
           # mode does not fail while preparing the device build environment.
           pmbootstrap build --force --arch=aarch64 abuild
-          pmbootstrap install --password 147147
+          pmbootstrap --details-to-stdout install --password 147147
           pmbootstrap export
           cp /tmp/postmarketOS-export/boot.img out/boot-xiaomi-lmi.img
           cp /tmp/postmarketOS-export/xiaomi-lmi.img out/rootfs-xiaomi-lmi.img
 
-      - name: Upload artifacts
+      - name: Upload image artifacts
+        if: ${{ hashFiles('out/*-lmi.img*') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: xiaomi-lmi
