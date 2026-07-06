@@ -103,6 +103,11 @@ jobs:
           # checked-out pmaports tree. Prebuild abuild for aarch64 too so strict
           # mode does not fail while preparing the device build environment.
           pmbootstrap build --force --arch=aarch64 abuild
+          # The rootfs pulls in device-xiaomi-lmi-nonfree-firmware, which depends
+          # on firmware-xiaomi-lmi. Build both local packages before apk resolves
+          # the rootfs package set so the dependency is available in packages/edge.
+          pmbootstrap build --force --arch=aarch64 firmware-xiaomi-lmi
+          pmbootstrap build --force --arch=aarch64 device-xiaomi-lmi-nonfree-firmware
           pmbootstrap --details-to-stdout install --password 147147
           pmbootstrap export
           cp /tmp/postmarketOS-export/boot.img out/boot-xiaomi-lmi.img
