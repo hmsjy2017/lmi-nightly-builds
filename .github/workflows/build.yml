@@ -21,6 +21,9 @@ jobs:
 
       - name: Install pmbootstrap from git
         run: |
+          git config --global http.version HTTP/1.1
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git
           mkdir -p ~/.local/bin
           ln -s "$PWD/pmbootstrap/pmbootstrap.py" ~/.local/bin/pmbootstrap
@@ -28,19 +31,36 @@ jobs:
 
       - name: Set up pmaports
         run: |
-          echo -e '\n\n' | pmbootstrap init || true
+          for attempt in 1 2 3; do
+            rm -rf ~/.local/var/pmbootstrap
+            if yes '' | pmbootstrap init; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "pmbootstrap init failed after $attempt attempts" >&2
+              exit 1
+            fi
+            sleep $((attempt * 30))
+          done
           cd ~/.local/var/pmbootstrap/cache_git/pmaports
           git remote add mainlining https://github.com/yuweiyuan8/pmaports.git
           git fetch mainlining nikroks/alioth
-          git reset --hard mainlining/nikroks/alioth
+          # Keep the current upstream edge tree from pmbootstrap init, then merge
+          # the device/kernel changes from the custom branch on top. This avoids
+          # reverting the whole pmaports checkout to an older edge snapshot.
+          git merge --no-edit -X theirs mainlining/nikroks/alioth
 
       - name: Clone kernel sources
         run: |
           git clone https://github.com/yuweiyuan8/linux.git --single-branch --branch v6.19 --depth 1 ./linux
 
-      - name: Choose any SM8250 device in pmbootstrap to build kernel
+      - name: Configure xiaomi-lmi in pmbootstrap
         run: |
-          cp xiaomi-lmi.cfg ~/.config/pmbootstrap_v3.cfg
+          pmbootstrap config device xiaomi-lmi
+          pmbootstrap config ui phosh
+          pmbootstrap config systemd never
+          pmbootstrap config user user
+          pmbootstrap config jobs $(nproc)
 
       - name: Compile kernel with envkernel
         run: |
@@ -49,21 +69,52 @@ jobs:
           source ../pmbootstrap/helpers/envkernel.sh
           make defconfig sm8250.config
           make -j$(nproc)
+          # The envkernel package build runs in strict mode. Prebuild abuild for
+          # the native chroot so pmbootstrap does not need to build it as an
+          # implicit dependency while strict mode is active.
+          pmbootstrap build --force --arch=x86_64 abuild
           pmbootstrap build --envkernel linux-postmarketos-qcom-sm8250-lmi
+
+      - name: Stage kernel package artifacts
+        run: |
+          mkdir -p out/kernel-packages
+          find ~/.local/var/pmbootstrap/packages/edge -type f -name 'linux-postmarketos-qcom-sm8250-lmi*.apk' -exec cp {} out/kernel-packages/ \;
+          test -n "$(find out/kernel-packages -type f -name '*.apk' -print -quit)"
+
+      - name: Upload kernel package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaomi-lmi-kernel-packages
+          path: out/kernel-packages/*.apk
+          retention-days: 7
 
       - name: Create artifact directory
         run: |
-          mkdir out
+          mkdir -p out
 
       - name: Build xiaomi-lmi
         run: |
-          cp xiaomi-lmi.cfg ~/.config/pmbootstrap_v3.cfg
-          pmbootstrap install --password 147147
+          pmbootstrap config device xiaomi-lmi
+          pmbootstrap config ui phosh
+          pmbootstrap config systemd never
+          pmbootstrap config user user
+          pmbootstrap config jobs $(nproc)
+          # Rootfs creation may need to rebuild device-arch packages from the
+          # checked-out pmaports tree. Prebuild abuild for aarch64 too so strict
+          # mode does not fail while preparing the device build environment.
+          pmbootstrap build --force --arch=aarch64 abuild
+          # The rootfs pulls in device-xiaomi-lmi-nonfree-firmware, which depends
+          # on firmware-xiaomi-lmi. Build both local packages before apk resolves
+          # the rootfs package set so the dependency is available in packages/edge.
+          pmbootstrap build --force --arch=aarch64 firmware-xiaomi-lmi
+          pmbootstrap build --force --arch=aarch64 device-xiaomi-lmi-nonfree-firmware
+          pmbootstrap --details-to-stdout install --password 147147
           pmbootstrap export
           cp /tmp/postmarketOS-export/boot.img out/boot-xiaomi-lmi.img
           cp /tmp/postmarketOS-export/xiaomi-lmi.img out/rootfs-xiaomi-lmi.img
 
-      - name: Upload artifacts
+      - name: Upload image artifacts
+        if: ${{ hashFiles('out/*-lmi.img*') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: xiaomi-lmi
